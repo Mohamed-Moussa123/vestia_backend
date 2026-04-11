@@ -15,7 +15,7 @@ class SavedController {
              JOIN products p ON p.id = s.product_id
              LEFT JOIN reviews r ON r.product_id = p.id
              WHERE s.user_id = ? AND p.is_active = 1
-             GROUP BY p.id, p.name, p.price, p.old_price, p.image_url
+             GROUP BY p.id, p.name, p.price, p.old_price, p.image_url, s.created_at
              ORDER BY s.created_at DESC"
         );
         $stmt->execute([$user['id']]);
