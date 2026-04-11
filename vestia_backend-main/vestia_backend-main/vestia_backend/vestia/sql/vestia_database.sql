@@ -3,12 +3,6 @@
 -- Compatible with PostgreSQL 12+
 -- ============================================================
 
--- Create database (uncomment if running standalone)
--- CREATE DATABASE vestia_db;
-
--- ──────────────────────────────────────────────
--- ADMINS
--- ──────────────────────────────────────────────
 CREATE TABLE admins (
   id         SERIAL PRIMARY KEY,
   name       VARCHAR(100) NOT NULL,
@@ -17,13 +11,9 @@ CREATE TABLE admins (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Default admin: admin@vestia.com / Admin@1234
 INSERT INTO admins (name, email, password) VALUES
 ('Admin Vestia', 'admin@vestia.com', '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi');
 
--- ──────────────────────────────────────────────
--- USERS
--- ──────────────────────────────────────────────
 CREATE TABLE users (
   id         SERIAL PRIMARY KEY,
   name       VARCHAR(100) NOT NULL,
@@ -35,7 +25,6 @@ CREATE TABLE users (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Trigger to update updated_at automatically
 CREATE OR REPLACE FUNCTION update_users_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -47,9 +36,6 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER users_updated_at BEFORE UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION update_users_timestamp();
 
--- ──────────────────────────────────────────────
--- AUTH TOKENS (simple token table — no JWT lib needed)
--- ──────────────────────────────────────────────
 CREATE TABLE auth_tokens (
   id         SERIAL PRIMARY KEY,
   user_id    INTEGER NOT NULL,
@@ -59,9 +45,6 @@ CREATE TABLE auth_tokens (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- ──────────────────────────────────────────────
--- CATEGORIES
--- ──────────────────────────────────────────────
 CREATE TABLE categories (
   id         SERIAL PRIMARY KEY,
   name       VARCHAR(100) NOT NULL,
@@ -79,9 +62,6 @@ INSERT INTO categories (name, name_ar, name_fr, slug, sort_order) VALUES
 ('Shoes',   'أحذية',     'Chaussures', 'shoes',   3),
 ('Jackets', 'جاكيتات',   'Vestes',     'jackets', 4);
 
--- ──────────────────────────────────────────────
--- PRODUCTS
--- ──────────────────────────────────────────────
 CREATE TABLE products (
   id          SERIAL PRIMARY KEY,
   category_id INTEGER DEFAULT NULL,
@@ -99,7 +79,6 @@ CREATE TABLE products (
   FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
 );
 
--- Trigger to update updated_at automatically
 CREATE OR REPLACE FUNCTION update_products_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -121,9 +100,6 @@ INSERT INTO products (category_id, name, name_ar, name_fr, description, price, o
 (2, 'Regular Fit Crew', 'تيشيرت فيت عادي كرو', 'T-shirt Fit Régulier Crew', 'The name says it all, the right size slightly snugs the body leaving enough room for comfort in the sleeves and waist.', 990.00, NULL, 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=400&h=480&fit=crop&auto=format'),
 (2, 'Regular Fit Striped Blue', 'تيشيرت فيت عادي مخطط أزرق', 'T-shirt Fit Régulier Rayé Bleu', 'The name says it all, the right size slightly snugs the body leaving enough room for comfort in the sleeves and waist.', 1390.00, NULL, 'https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=400&h=480&fit=crop&auto=format');
 
--- ──────────────────────────────────────────────
--- SAVED ITEMS (Wishlist)
--- ──────────────────────────────────────────────
 CREATE TABLE saved_items (
   id         SERIAL PRIMARY KEY,
   user_id    INTEGER NOT NULL,
@@ -134,9 +110,6 @@ CREATE TABLE saved_items (
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
--- ──────────────────────────────────────────────
--- CART ITEMS
--- ──────────────────────────────────────────────
 CREATE TABLE cart_items (
   id         SERIAL PRIMARY KEY,
   user_id    INTEGER NOT NULL,
@@ -150,7 +123,6 @@ CREATE TABLE cart_items (
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
--- Trigger to update updated_at automatically
 CREATE OR REPLACE FUNCTION update_cart_items_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -162,9 +134,6 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER cart_items_updated_at BEFORE UPDATE ON cart_items
 FOR EACH ROW EXECUTE FUNCTION update_cart_items_timestamp();
 
--- ──────────────────────────────────────────────
--- ORDERS
--- ──────────────────────────────────────────────
 CREATE TYPE order_status AS ENUM ('Packing', 'Picked', 'In Transit', 'Completed', 'Cancelled');
 
 CREATE TABLE orders (
@@ -181,7 +150,6 @@ CREATE TABLE orders (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Trigger to update updated_at automatically
 CREATE OR REPLACE FUNCTION update_orders_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -193,9 +161,6 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER orders_updated_at BEFORE UPDATE ON orders
 FOR EACH ROW EXECUTE FUNCTION update_orders_timestamp();
 
--- ──────────────────────────────────────────────
--- ORDER ITEMS
--- ──────────────────────────────────────────────
 CREATE TABLE order_items (
   id         SERIAL PRIMARY KEY,
   order_id   INTEGER NOT NULL,
@@ -209,9 +174,6 @@ CREATE TABLE order_items (
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
 );
 
--- ──────────────────────────────────────────────
--- REVIEWS
--- ──────────────────────────────────────────────
 CREATE TABLE reviews (
   id         SERIAL PRIMARY KEY,
   user_id    INTEGER NOT NULL,
@@ -225,23 +187,3 @@ CREATE TABLE reviews (
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
   FOREIGN KEY (order_id)   REFERENCES orders(id)   ON DELETE SET NULL
 );
-
--- Sample reviews
-INSERT INTO reviews (user_id, product_id, order_id, rating, text) VALUES
-(1, 1, NULL, 5, 'The item is very good, I like it very much.'),
-(1, 2, NULL, 4, 'The seller is very fast in sending packet, arrived in just 1 day!'),
-(1, 3, NULL, 4, 'Really good quality! I highly recommend it!');
-
--- ──────────────────────────────────────────────
--- Sequence reset (optional, for auto-increment IDs)
--- ──────────────────────────────────────────────
-SELECT setval('admins_id_seq', (SELECT MAX(id) FROM admins) + 1);
-SELECT setval('users_id_seq', 1);
-SELECT setval('auth_tokens_id_seq', 1);
-SELECT setval('categories_id_seq', (SELECT MAX(id) FROM categories) + 1);
-SELECT setval('products_id_seq', (SELECT MAX(id) FROM products) + 1);
-SELECT setval('saved_items_id_seq', 1);
-SELECT setval('cart_items_id_seq', 1);
-SELECT setval('orders_id_seq', 1);
-SELECT setval('order_items_id_seq', 1);
-SELECT setval('reviews_id_seq', (SELECT MAX(id) FROM reviews) + 1);
