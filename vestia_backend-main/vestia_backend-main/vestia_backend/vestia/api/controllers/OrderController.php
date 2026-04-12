@@ -30,8 +30,10 @@ class OrderController {
         $orders = $stmt->fetchAll();
 
         foreach ($orders as &$order) {
+            // ✅ يجلب الأسماء بالثلاث لغات
             $items = $db->prepare(
-                'SELECT oi.id, oi.name, oi.image_url, oi.price, oi.quantity, oi.size, oi.product_id
+                'SELECT oi.id, oi.name, oi.name_ar, oi.name_fr,
+                        oi.image_url, oi.price, oi.quantity, oi.size, oi.product_id
                  FROM order_items oi WHERE oi.order_id = ?'
             );
             $items->execute([$order['id']]);
@@ -40,8 +42,11 @@ class OrderController {
             foreach ($order['items'] as &$item) {
                 $item['image_url'] = fixImageUrl($item['image_url']);
 
+                // ✅ fallback: إذا كان name_ar أو name_fr فارغاً يرجع الاسم الإنجليزي
+                $item['name_ar'] = $item['name_ar'] ?: $item['name'];
+                $item['name_fr'] = $item['name_fr'] ?: $item['name'];
+
                 // ✅ التحقق من التقييم مرتبط بالطلبية تحديداً
-                // ✅ try-catch لحماية الـ API في حال عمود order_id غير موجود بعد
                 try {
                     $rev = $db->prepare(
                         'SELECT id, rating FROM reviews
@@ -76,12 +81,19 @@ class OrderController {
 
         if (!$order) jsonError('Order not found', 404);
 
-        $items = $db->prepare('SELECT * FROM order_items WHERE order_id = ?');
+        // ✅ يجلب الأسماء بالثلاث لغات
+        $items = $db->prepare(
+            'SELECT oi.id, oi.name, oi.name_ar, oi.name_fr,
+                    oi.image_url, oi.price, oi.quantity, oi.size, oi.product_id
+             FROM order_items oi WHERE oi.order_id = ?'
+        );
         $items->execute([$id]);
         $rawItems = $items->fetchAll();
 
         foreach ($rawItems as &$item) {
             $item['image_url'] = fixImageUrl($item['image_url']);
+            $item['name_ar']   = $item['name_ar'] ?: $item['name'];
+            $item['name_fr']   = $item['name_fr'] ?: $item['name'];
         }
         $order['items'] = $rawItems;
 
@@ -92,8 +104,11 @@ class OrderController {
         $user = getAuthUser();
         $db   = getDB();
 
+        // ✅ يجلب الأسماء بالثلاث لغات من جدول products
         $stmt = $db->prepare(
-            "SELECT c.quantity, c.size, p.id AS product_id, p.name, p.price, p.image_url
+            "SELECT c.quantity, c.size, p.id AS product_id,
+                    p.name, p.name_ar, p.name_fr,
+                    p.price, p.image_url
              FROM cart_items c
              JOIN products p ON p.id = c.product_id
              WHERE c.user_id = ? AND p.is_active = 1"
@@ -109,20 +124,29 @@ class OrderController {
 
         $db->beginTransaction();
         try {
-            // ✅ RETURNING id بدلاً من lastInsertId()
             $insertStmt = $db->prepare(
                 'INSERT INTO orders (user_id, status, subtotal, shipping_fee, vat, total) VALUES (?,?,?,?,?,?) RETURNING id'
             );
             $insertStmt->execute([$user['id'], 'Packing', $subtotal, $shippingFee, 0, $total]);
             $orderId = (int)$insertStmt->fetchColumn();
 
+            // ✅ يحفظ الأسماء بالثلاث لغات في order_items
             $insertItem = $db->prepare(
-                'INSERT INTO order_items (order_id, product_id, name, image_url, price, quantity, size) VALUES (?,?,?,?,?,?,?)'
+                'INSERT INTO order_items
+                 (order_id, product_id, name, name_ar, name_fr, image_url, price, quantity, size)
+                 VALUES (?,?,?,?,?,?,?,?,?)'
             );
             foreach ($cartItems as $item) {
                 $insertItem->execute([
-                    $orderId, $item['product_id'], $item['name'],
-                    $item['image_url'], $item['price'], $item['quantity'], $item['size']
+                    $orderId,
+                    $item['product_id'],
+                    $item['name'],
+                    $item['name_ar'] ?? $item['name'],
+                    $item['name_fr'] ?? $item['name'],
+                    $item['image_url'],
+                    $item['price'],
+                    $item['quantity'],
+                    $item['size']
                 ]);
             }
 
