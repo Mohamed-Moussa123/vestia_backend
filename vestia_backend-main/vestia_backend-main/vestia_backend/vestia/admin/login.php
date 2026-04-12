@@ -1,25 +1,21 @@
 <?php
 session_start();
 require_once __DIR__ . '/includes/db.php';
-
 if (!empty($_SESSION['admin_id'])) {
-    header('Location: /vestia_backend/vestia/admin/dashboard.php'); exit;
+    header('Location: /admin/dashboard.php'); exit;
 }
-
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = strtolower(trim($_POST['email'] ?? ''));
     $pass  = $_POST['password'] ?? '';
-
     $stmt = db()->prepare('SELECT * FROM admins WHERE email = ?');
     $stmt->execute([$email]);
     $admin = $stmt->fetch();
-
     if ($admin && password_verify($pass, $admin['password'])) {
         $_SESSION['admin_id']   = $admin['id'];
         $_SESSION['admin_name'] = $admin['name'];
         session_regenerate_id(true);
-        header('Location: /vestia_backend/vestia/admin/dashboard.php'); exit;
+        header('Location: /admin/dashboard.php'); exit;
     }
     $error = 'Invalid email or password.';
 }
@@ -59,11 +55,9 @@ body { font-family: 'Inter', sans-serif; background: #111; min-height: 100vh; di
       <h1>VESTIA</h1>
       <p>COUTURE ADMIN</p>
     </div>
-
     <?php if ($error): ?>
       <div class="alert-error"><i class="bi bi-exclamation-circle me-1"></i><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
-
     <form method="POST">
       <div class="mb-3">
         <label class="form-label">Email</label>
@@ -75,7 +69,6 @@ body { font-family: 'Inter', sans-serif; background: #111; min-height: 100vh; di
       </div>
       <button type="submit" class="btn-login">Login</button>
     </form>
-
     <p class="text-center mt-4 mb-0" style="font-size:12px;color:#9ca3af">VESTIA Admin v1.0</p>
   </div>
 </div>
