@@ -11,9 +11,11 @@ class CartController {
     private static function getCartData($userId): array {
         $db = getDB();
         
+        // ✅ يجلب الأسماء بالثلاث لغات
         $stmt = $db->prepare(
             "SELECT c.id, c.quantity, c.size,
-                    p.id AS product_id, p.name, p.price, p.old_price, p.image_url
+                    p.id AS product_id, p.name, p.name_ar, p.name_fr,
+                    p.price, p.old_price, p.image_url
              FROM cart_items c
              JOIN products p ON p.id = c.product_id
              WHERE c.user_id = ? AND p.is_active = 1
@@ -22,7 +24,7 @@ class CartController {
         $stmt->execute([$userId]);
         $items = $stmt->fetchAll();
 
-        // ✅ FIX IMAGE URLs
+        // ✅ FIX IMAGE URLs + fallback للأسماء
         $items = array_map(function($item) {
             $imageUrl = $item['image_url'];
             if ($imageUrl && strpos($imageUrl, 'http') !== 0 && strpos($imageUrl, '/') === 0) {
@@ -30,6 +32,9 @@ class CartController {
                 $host = $_SERVER['HTTP_HOST'];
                 $item['image_url'] = "{$protocol}://{$host}{$imageUrl}";
             }
+            // ✅ fallback: إذا كان name_ar أو name_fr فارغاً يرجع الاسم الإنجليزي
+            $item['name_ar'] = $item['name_ar'] ?: $item['name'];
+            $item['name_fr'] = $item['name_fr'] ?: $item['name'];
             return $item;
         }, $items);
 
@@ -67,8 +72,6 @@ class CartController {
         $check->execute([$productId]);
         if (!$check->fetch()) jsonError('Product not found', 404);
 
-        // ✅ ON CONFLICT بدلاً من ON DUPLICATE KEY UPDATE (PostgreSQL)
-        // يتطلب وجود UNIQUE constraint على (user_id, product_id, size) في جدول cart_items
         $db->prepare(
             "INSERT INTO cart_items (user_id, product_id, quantity, size)
              VALUES (?, ?, ?, ?)
@@ -76,7 +79,6 @@ class CartController {
              DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity"
         )->execute([$user['id'], $productId, $quantity, $size]);
 
-        // ✅ RETURN UPDATED CART IMMEDIATELY - no need to refresh
         $cartData = self::getCartData($user['id']);
         jsonSuccess($cartData, 'Added to cart', 201);
     }
@@ -97,7 +99,6 @@ class CartController {
                ->execute([$quantity, $id, $user['id']]);
         }
 
-        // ✅ RETURN UPDATED CART
         $cartData = self::getCartData($user['id']);
         jsonSuccess($cartData, $quantity <= 0 ? 'Item removed' : 'Cart updated');
     }
@@ -110,7 +111,6 @@ class CartController {
         $db->prepare('DELETE FROM cart_items WHERE id = ? AND user_id = ?')
            ->execute([$id, $user['id']]);
 
-        // ✅ RETURN UPDATED CART
         $cartData = self::getCartData($user['id']);
         jsonSuccess($cartData, 'Item removed from cart');
     }
