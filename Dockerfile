@@ -3,6 +3,7 @@ RUN apt-get update && apt-get install -y libpq-dev \
     && docker-php-ext-install pdo pdo_pgsql \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 COPY vestia_backend-main/vestia_backend-main/vestia_backend/vestia/api/ /var/www/html/
+COPY vestia_backend-main/vestia_backend-main/vestia_backend/vestia/admin/ /var/www/html/admin/
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html
 RUN a2enmod rewrite
