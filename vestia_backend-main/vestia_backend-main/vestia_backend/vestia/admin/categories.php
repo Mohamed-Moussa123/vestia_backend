@@ -10,13 +10,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'add') {
         $name    = sanitize($_POST['name']    ?? '');
-        $nameAr  = sanitize($_POST['name_ar'] ?? ''); // ✅ إصلاح 4
-        $nameFr  = sanitize($_POST['name_fr'] ?? ''); // ✅ إصلاح 4
+        $nameAr  = sanitize($_POST['name_ar'] ?? '');
+        $nameFr  = sanitize($_POST['name_fr'] ?? '');
         $slug    = strtolower(preg_replace('/[^a-z0-9]+/i', '-', trim($name)));
         if ($name) {
             $maxOrder = $db->query('SELECT COALESCE(MAX(sort_order),0)+1 FROM categories')->fetchColumn();
             try {
-                // ✅ إصلاح 4 — حفظ name_ar و name_fr
                 $db->prepare('INSERT INTO categories (name, name_ar, name_fr, slug, sort_order) VALUES (?,?,?,?,?)')
                    ->execute([$name, $nameAr ?: null, $nameFr ?: null, $slug, $maxOrder]);
                 flash('success', 'Category added!');
@@ -24,10 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('error', 'Category already exists.');
             }
         }
-        header('Location:/vestia_backend/vestia/admin/categories.php'); exit;
+        header('Location: /admin/categories.php'); exit;
     }
 
-    // ✅ إصلاح 4 — تعديل الفئة
     if ($action === 'edit') {
         $id     = (int)$_POST['id'];
         $name   = sanitize($_POST['name']    ?? '');
@@ -38,14 +36,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                ->execute([$name, $nameAr ?: null, $nameFr ?: null, $id]);
             flash('success', 'Category updated!');
         }
-        header('Location:/vestia_backend/vestia/admin/categories.php'); exit;
+        header('Location: /admin/categories.php'); exit;
     }
 
     if ($action === 'delete') {
         $id = (int)$_POST['id'];
         $db->prepare("DELETE FROM categories WHERE id=? AND slug != 'all'")->execute([$id]);
         flash('success', 'Category deleted.');
-        header('Location:/vestia_backend/vestia/admin/categories.php'); exit;
+        header('Location: /admin/categories.php'); exit;
     }
 }
 
@@ -79,7 +77,7 @@ include __DIR__ . '/includes/header.php';
       <div class="card-header">
         <h5><i class="bi bi-<?= $editCat ? 'pencil' : 'plus-circle' ?> me-2"></i><?= $editCat ? 'Edit Category' : 'Add Category' ?></h5>
         <?php if ($editCat): ?>
-          <a href="/vestia_backend/vestia/admin/categories.php" class="btn btn-sm btn-outline-secondary ms-auto">Cancel</a>
+          <a href="/admin/categories.php" class="btn btn-sm btn-outline-secondary ms-auto">Cancel</a>
         <?php endif; ?>
       </div>
       <div class="p-4">
@@ -97,7 +95,6 @@ include __DIR__ . '/includes/header.php';
                    value="<?= htmlspecialchars($editCat['name'] ?? '') ?>" required>
           </div>
 
-          <!-- ✅ إصلاح 4 — حقل الاسم بالعربية -->
           <div class="mb-3">
             <label class="form-label">الاسم بالعربية <span class="text-muted" style="font-size:12px">(اختياري)</span></label>
             <input type="text" name="name_ar" class="form-control" dir="rtl"
@@ -105,7 +102,6 @@ include __DIR__ . '/includes/header.php';
                    value="<?= htmlspecialchars($editCat['name_ar'] ?? '') ?>">
           </div>
 
-          <!-- ✅ إصلاح 4 — حقل الاسم بالفرنسية -->
           <div class="mb-3">
             <label class="form-label">Nom en Français <span class="text-muted" style="font-size:12px">(optionnel)</span></label>
             <input type="text" name="name_fr" class="form-control"
@@ -147,7 +143,7 @@ include __DIR__ . '/includes/header.php';
               <td>
                 <?php if ($cat['slug'] !== 'all'): ?>
                 <div class="d-flex gap-1">
-                  <a href="/vestia_backend/vestia/admin/categories.php?edit=<?= $cat['id'] ?>" class="btn-icon">
+                  <a href="/admin/categories.php?edit=<?= $cat['id'] ?>" class="btn-icon">
                     <i class="bi bi-pencil"></i>
                   </a>
                   <form method="POST" class="d-inline">
