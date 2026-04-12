@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db->prepare('UPDATE orders SET status=? WHERE id=?')->execute([$status,$id]);
         flash('success', 'Order #' . $id . ' status updated to ' . $status);
     }
-    header('Location: /vestia_backend/vestia/admin/orders.php'); exit;
+    header('Location: /admin/orders.php'); exit;
 }
 
 // Single order view
@@ -40,7 +40,6 @@ $offset     = ($page-1)*$limit;
 $where  = ['1=1'];
 $params = [];
 if ($statusFilt) { $where[] = 'o.status=?'; $params[] = $statusFilt; }
-// ✅ ILIKE بدلاً من LIKE (PostgreSQL حساس لحالة الأحرف)، وCAST للـ id
 if ($search)     { $where[] = '(u.name ILIKE ? OR u.phone ILIKE ? OR o.id=?)'; $params[] = "%$search%"; $params[] = "%$search%"; $params[] = (int)$search; }
 $whereSQL = implode(' AND ',$where);
 
@@ -49,7 +48,6 @@ $totalStmt->execute($params);
 $total = (int)$totalStmt->fetchColumn();
 $pages = max(1,(int)ceil($total/$limit));
 
-// ✅ LIMIT و OFFSET كقيم مباشرة (PostgreSQL لا يقبلهما كـ parameters في بعض الإصدارات)
 $stmt = $db->prepare("SELECT o.*,u.name AS user_name,u.phone FROM orders o JOIN users u ON u.id=o.user_id WHERE $whereSQL ORDER BY o.created_at DESC LIMIT $limit OFFSET $offset");
 $stmt->execute($params);
 $orders = $stmt->fetchAll();
@@ -63,7 +61,7 @@ include __DIR__ . '/includes/header.php';
 <?php if ($viewOrder): ?>
 <!-- Single Order Detail View -->
 <div class="d-flex align-items-center gap-3 mb-4">
-  <a href="/vestia_backend/vestia/admin/orders.php" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to Orders</a>
+  <a href="/admin/orders.php" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to Orders</a>
   <h4 class="mb-0 fw-800">Order #<?= $viewOrder['id'] ?></h4>
   <?php $sc=['Packing'=>'bs-packing','Picked'=>'bs-picked','In Transit'=>'bs-transit','Completed'=>'bs-completed','Cancelled'=>'bs-cancelled'][$viewOrder['status']]??''; ?>
   <span class="badge-status <?= $sc ?>"><?= $viewOrder['status'] ?></span>
@@ -108,7 +106,7 @@ include __DIR__ . '/includes/header.php';
       <div class="card-header"><h5><i class="bi bi-person me-2"></i>Customer</h5></div>
       <div class="p-3">
         <div class="fw-700"><?= htmlspecialchars($viewOrder['user_name']) ?></div>
-        <div class="text-muted" style="font-size:13px"> 
+        <div class="text-muted" style="font-size:13px">
           <i class="bi bi-telephone me-1"></i><?= htmlspecialchars($viewOrder['phone'] ?? 'N/A') ?>
         </div>
         <div class="text-muted mt-2" style="font-size:12px"><i class="bi bi-calendar me-1"></i><?= date('M j, Y H:i', strtotime($viewOrder['created_at'])) ?></div>
@@ -147,7 +145,7 @@ include __DIR__ . '/includes/header.php';
         <?php endforeach; ?>
       </select>
       <button class="btn btn-sm btn-dark">Filter</button>
-      <?php if($search||$statusFilt): ?><a href="/vestia_backend/vestia/admin/orders.php" class="btn btn-sm btn-outline-secondary">Clear</a><?php endif; ?>
+      <?php if($search||$statusFilt): ?><a href="/admin/orders.php" class="btn btn-sm btn-outline-secondary">Clear</a><?php endif; ?>
     </form>
   </div>
   <div class="table-responsive">
@@ -172,7 +170,7 @@ include __DIR__ . '/includes/header.php';
           <td class="fw-700"><?= formatPrice($o['total']) ?></td>
           <td><span class="badge-status <?= $sc ?>"><?= $o['status'] ?></span></td>
           <td style="font-size:12px;color:#9ca3af"><?= timeAgo($o['created_at']) ?></td>
-          <td><a href="/vestia_backend/vestia/admin/orders.php?id=<?= $o['id'] ?>" class="btn-icon"><i class="bi bi-eye"></i></a></td>
+          <td><a href="/admin/orders.php?id=<?= $o['id'] ?>" class="btn-icon"><i class="bi bi-eye"></i></a></td>
         </tr>
       <?php endforeach; ?>
       <?php if(empty($orders)): ?>
