@@ -4,6 +4,58 @@ require_once __DIR__ . '/includes/db.php';
 adminCheck();
 $db = db();
 
+// ══════════════════════════════════════════════
+//  ☁️  Cloudinary Configuration
+//  ضع بياناتك هنا أو في ملف .env
+// ══════════════════════════════════════════════
+define('CLOUDINARY_CLOUD_NAME', 'dyaiu7env');
+define('CLOUDINARY_API_KEY',    '368529122995758');
+define('CLOUDINARY_API_SECRET', 'I-Udh8Hr06mSqWhkbhQeyTk1O5s');
+define('CLOUDINARY_FOLDER',     'vestia/products');    // مجلد التخزين في Cloudinary
+
+/**
+ * رفع صورة إلى Cloudinary عبر REST API مباشرةً (بدون مكتبة خارجية)
+ * يُعيد الـ secure_url عند النجاح، أو false عند الفشل
+ */
+function uploadToCloudinary(string $fileTmpPath, string $originalName): string|false
+{
+    $timestamp  = time();
+    $folder     = CLOUDINARY_FOLDER;
+    $publicId   = $folder . '/' . pathinfo($originalName, PATHINFO_FILENAME) . '_' . uniqid();
+
+    // توقيع الطلب
+    $paramsToSign = "folder={$folder}&public_id={$publicId}&timestamp={$timestamp}";
+    $signature    = sha1($paramsToSign . CLOUDINARY_API_SECRET);
+
+    $uploadUrl = 'https://api.cloudinary.com/v1_1/' . CLOUDINARY_CLOUD_NAME . '/image/upload';
+
+    $postFields = [
+        'file'       => new CURLFile($fileTmpPath),
+        'api_key'    => CLOUDINARY_API_KEY,
+        'timestamp'  => $timestamp,
+        'signature'  => $signature,
+        'folder'     => $folder,
+        'public_id'  => $publicId,
+    ];
+
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL            => $uploadUrl,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $postFields,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 30,
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode !== 200) return false;
+
+    $data = json_decode($response, true);
+    return $data['secure_url'] ?? false;   // رابط HTTPS مباشر من Cloudinary CDN
+}
+
 // ── Handle actions ──
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verifyCsrf();
@@ -11,8 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'add' || $action === 'edit') {
         $name     = sanitize($_POST['name']    ?? '');
-        $nameAr   = sanitize($_POST['name_ar'] ?? ''); // ✅ إصلاح 4
-        $nameFr   = sanitize($_POST['name_fr'] ?? ''); // ✅ إصلاح 4
+        $nameAr   = sanitize($_POST['name_ar'] ?? '');
+        $nameFr   = sanitize($_POST['name_fr'] ?? '');
         $catId    = (int)($_POST['category_id'] ?? 0) ?: null;
         $price    = (float)($_POST['price']     ?? 0);
         $oldPrice = $_POST['old_price'] !== '' ? (float)$_POST['old_price'] : null;
@@ -20,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sizes    = sanitize($_POST['sizes']    ?? 'S,M,L,XL,XXL');
         $isActive = isset($_POST['is_active']) ? 1 : 0;
 
-        // Keep existing image unless a new file is uploaded
+        // الصورة: يُحتفظ بالقديمة إلا إذا رُفعت جديدة
         $imageUrl = sanitize($_POST['current_image_url'] ?? '');
 
         if (!empty($_FILES['image_file']['name'])) {
@@ -29,38 +81,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $maxSize = 5 * 1024 * 1024; // 5 MB
 
             if (!in_array($file['type'], $allowed)) {
-                flash('error', 'Invalid image type. Allowed: JPG, PNG, WEBP, GIF.');
+                flash('error', 'نوع الصورة غير مدعوم. المسموح: JPG, PNG, WEBP, GIF.');
             } elseif ($file['size'] > $maxSize) {
-                flash('error', 'Image is too large. Max size is 5 MB.');
+                flash('error', 'حجم الصورة كبير جداً. الحد الأقصى 5 MB.');
             } elseif ($file['error'] !== UPLOAD_ERR_OK) {
-                flash('error', 'Upload error. Please try again.');
+                flash('error', 'فشل في رفع الصورة. حاول مرة أخرى.');
             } else {
-                $uploadDir = __DIR__ . '/../uploads/products/';
-                if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-                $ext      = pathinfo($file['name'], PATHINFO_EXTENSION);
-                $filename = uniqid('prod_', true) . '.' . strtolower($ext);
-                if (move_uploaded_file($file['tmp_name'], $uploadDir . $filename)) {
-                    $imageUrl = '/vestia_backend/vestia/uploads/products/' . $filename;
+                // ☁️ الرفع إلى Cloudinary
+                $cloudUrl = uploadToCloudinary($file['tmp_name'], $file['name']);
+                if ($cloudUrl) {
+                    $imageUrl = $cloudUrl;
+                    // الرابط جاهز للحفظ في DB واستخدامه مباشرةً في التطبيق والإدمن
                 } else {
-                    flash('error', 'Failed to save the uploaded image.');
+                    flash('error', 'فشل الرفع إلى Cloudinary. تحقق من بيانات الاعتماد.');
                 }
             }
         }
 
         if (!$name || !$price) {
-            flash('error', 'Name and price are required.');
+            flash('error', 'الاسم والسعر مطلوبان.');
         } else {
             if ($action === 'add') {
-                // ✅ إصلاح 4 — حفظ name_ar و name_fr
                 $db->prepare('INSERT INTO products (category_id, name, name_ar, name_fr, description, price, old_price, image_url, sizes, is_active) VALUES (?,?,?,?,?,?,?,?,?,?)')
                    ->execute([$catId, $name, $nameAr ?: null, $nameFr ?: null, $desc, $price, $oldPrice, $imageUrl, $sizes, $isActive]);
-                flash('success', 'Product added successfully!');
+                flash('success', 'تمت إضافة المنتج بنجاح!');
             } else {
                 $id = (int)$_POST['id'];
-                // ✅ إصلاح 4 — تحديث name_ar و name_fr
                 $db->prepare('UPDATE products SET category_id=?, name=?, name_ar=?, name_fr=?, description=?, price=?, old_price=?, image_url=?, sizes=?, is_active=? WHERE id=?')
                    ->execute([$catId, $name, $nameAr ?: null, $nameFr ?: null, $desc, $price, $oldPrice, $imageUrl, $sizes, $isActive, $id]);
-                flash('success', 'Product updated!');
+                flash('success', 'تم تحديث المنتج!');
             }
             header('Location: /vestia_backend/vestia/admin/products.php'); exit;
         }
@@ -69,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'delete') {
         $id = (int)$_POST['id'];
         $db->prepare('UPDATE products SET is_active=0 WHERE id=?')->execute([$id]);
-        flash('success', 'Product removed.');
+        flash('success', 'تم إخفاء المنتج.');
         header('Location: /vestia_backend/vestia/admin/products.php'); exit;
     }
 }
@@ -91,7 +140,6 @@ $offset  = ($page - 1) * $limit;
 
 $where  = ['p.is_active=1'];
 $params = [];
-// ✅ ILIKE بدلاً من LIKE
 if ($search)  { $where[] = 'p.name ILIKE ?'; $params[] = "%$search%"; }
 if ($catFilt) { $where[] = 'p.category_id=?'; $params[] = $catFilt; }
 $whereSQL = implode(' AND ', $where);
@@ -108,7 +156,6 @@ $stmt = $db->prepare(
 $stmt->execute($params);
 $products = $stmt->fetchAll();
 
-// ✅ علامات اقتباس مفردة بدلاً من المزدوجة
 $categories = $db->query("SELECT * FROM categories WHERE slug != 'all' ORDER BY sort_order")->fetchAll();
 
 $pageTitle = 'Products';
@@ -152,6 +199,26 @@ include __DIR__ . '/includes/header.php';
 .img-upload-placeholder .label { font-size: 13px; font-weight: 600; color: #374151; }
 .img-upload-placeholder .hint  { font-size: 11.5px; color: #9ca3af; text-align: center; }
 
+/* حالة جارٍ الرفع */
+.img-upload-uploading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 16px;
+  gap: 8px;
+  pointer-events: none;
+}
+.img-upload-uploading .spinner {
+  width: 32px; height: 32px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #111827;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.img-upload-uploading span { font-size: 12px; color: #6b7280; }
+
 .img-upload-preview { display: none; position: relative; }
 .img-upload-preview img {
   width: 100%;
@@ -189,6 +256,15 @@ include __DIR__ . '/includes/header.php';
   pointer-events: all;
 }
 .img-upload-preview .change-btn:hover { background: rgba(0,0,0,.85); }
+
+/* شارة Cloudinary */
+.cloudinary-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10.5px; color: #0ea5e9;
+  background: #f0f9ff; border: 1px solid #bae6fd;
+  border-radius: 20px; padding: 2px 8px;
+  margin-top: 4px;
+}
 </style>
 
 <?php $succ=flash('success'); $err=flash('error'); ?>
@@ -219,7 +295,6 @@ include __DIR__ . '/includes/header.php';
                    value="<?= htmlspecialchars($editProduct['name'] ?? '') ?>" required>
           </div>
 
-          <!-- ✅ إصلاح 4 — حقل الاسم بالعربية -->
           <div class="mb-3">
             <label class="form-label">الاسم بالعربية <span class="text-muted" style="font-size:12px">(اختياري)</span></label>
             <input type="text" name="name_ar" class="form-control" dir="rtl"
@@ -227,7 +302,6 @@ include __DIR__ . '/includes/header.php';
                    value="<?= htmlspecialchars($editProduct['name_ar'] ?? '') ?>">
           </div>
 
-          <!-- ✅ إصلاح 4 — حقل الاسم بالفرنسية -->
           <div class="mb-3">
             <label class="form-label">Nom en Français <span class="text-muted" style="font-size:12px">(optionnel)</span></label>
             <input type="text" name="name_fr" class="form-control"
@@ -260,18 +334,33 @@ include __DIR__ . '/includes/header.php';
             </div>
           </div>
 
-          <!-- ── Image Upload ── -->
+          <!-- ── Image Upload → Cloudinary ── -->
           <div class="mb-3">
-            <label class="form-label">Product Image</label>
+            <label class="form-label d-flex align-items-center gap-2">
+              Product Image
+              <span class="cloudinary-badge">
+                <i class="bi bi-cloud-arrow-up-fill"></i> Cloudinary CDN
+              </span>
+            </label>
             <div class="img-upload-area" id="uploadArea">
               <input type="file" name="image_file" id="imageFileInput"
                      accept="image/*"
                      onchange="handleImageSelect(this)">
+
+              <!-- حالة 1: لا توجد صورة -->
               <div class="img-upload-placeholder" id="uploadPlaceholder">
-                <span class="icon"><i class="bi bi-phone"></i></span>
+                <span class="icon"><i class="bi bi-cloud-upload"></i></span>
                 <span class="label">اضغط لاختيار صورة</span>
-                <span class="hint">من المعرض أو التقاط صورة جديدة</span>
+                <span class="hint">JPG · PNG · WEBP · GIF — حتى 5 MB<br>سيتم الرفع إلى Cloudinary تلقائياً</span>
               </div>
+
+              <!-- حالة 2: جارٍ الرفع -->
+              <div class="img-upload-uploading" id="uploadingIndicator" style="display:none">
+                <div class="spinner"></div>
+                <span>جارٍ الرفع إلى Cloudinary...</span>
+              </div>
+
+              <!-- حالة 3: معاينة الصورة -->
               <div class="img-upload-preview" id="uploadPreview">
                 <img id="previewImg" src="" alt="Preview">
                 <button type="button" class="remove-btn" onclick="removeImage(event)" title="Remove">
@@ -299,7 +388,7 @@ include __DIR__ . '/includes/header.php';
                    <?= ($editProduct['is_active'] ?? 1) ? 'checked' : '' ?>>
             <label class="form-check-label" for="isActive">Active (visible in app)</label>
           </div>
-          <button type="submit" class="btn btn-dark w-100">
+          <button type="submit" class="btn btn-dark w-100" id="submitBtn">
             <i class="bi bi-<?= $editProduct ? 'check2' : 'plus-lg' ?> me-2"></i><?= $editProduct ? 'Save Changes' : 'Add Product' ?>
           </button>
         </form>
@@ -344,17 +433,27 @@ include __DIR__ . '/includes/header.php';
               <td>
                 <div class="d-flex align-items-center gap-2">
                   <?php if ($p['image_url']): ?>
-                    <img src="<?= htmlspecialchars($p['image_url']) ?>" class="product-thumb" alt="">
+                    <?php
+                      // ☁️ إذا كان الرابط من Cloudinary أضف تحويل تلقائي للـ thumbnail
+                      $thumbUrl = $p['image_url'];
+                      if (str_contains($thumbUrl, 'cloudinary.com')) {
+                          // تحويل تلقائي: 80x80 crop + جودة auto
+                          $thumbUrl = str_replace('/upload/', '/upload/w_80,h_80,c_fill,q_auto,f_auto/', $thumbUrl);
+                      }
+                    ?>
+                    <img src="<?= htmlspecialchars($thumbUrl) ?>" class="product-thumb" alt="">
                   <?php else: ?>
                     <div class="product-thumb-placeholder"><i class="bi bi-image"></i></div>
                   <?php endif; ?>
                   <div>
                     <div class="fw-600" style="font-size:13px"><?= htmlspecialchars($p['name']) ?></div>
                     <div style="font-size:11px;color:#9ca3af">#<?= $p['id'] ?></div>
+                    <?php if ($p['image_url'] && str_contains($p['image_url'], 'cloudinary.com')): ?>
+                      <span style="font-size:10px;color:#0ea5e9"><i class="bi bi-cloud-check-fill"></i> CDN</span>
+                    <?php endif; ?>
                   </div>
                 </div>
               </td>
-              <!-- ✅ إصلاح 4 — عرض الأسماء المترجمة في الجدول -->
               <td style="font-size:12px;line-height:1.6">
                 <?php if ($p['name_ar'] ?? null): ?>
                   <div dir="rtl" style="color:#374151"><?= htmlspecialchars($p['name_ar']) ?></div>
@@ -416,6 +515,7 @@ include __DIR__ . '/includes/header.php';
 </div>
 
 <script>
+// ── Preview Logic ──
 document.addEventListener('DOMContentLoaded', function () {
   const existing = document.getElementById('currentImageUrl').value;
   if (existing) showPreview(existing);
@@ -423,6 +523,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 function handleImageSelect(input) {
   if (!input.files || !input.files[0]) return;
+  // نعرض معاينة فورية من الذاكرة (الرفع الفعلي يتم عند submit)
   const reader = new FileReader();
   reader.onload = e => showPreview(e.target.result);
   reader.readAsDataURL(input.files[0]);
@@ -430,8 +531,9 @@ function handleImageSelect(input) {
 
 function showPreview(src) {
   document.getElementById('previewImg').src = src;
-  document.getElementById('uploadPlaceholder').style.display = 'none';
-  document.getElementById('uploadPreview').style.display    = 'block';
+  document.getElementById('uploadPlaceholder').style.display    = 'none';
+  document.getElementById('uploadingIndicator').style.display   = 'none';
+  document.getElementById('uploadPreview').style.display        = 'block';
 }
 
 function removeImage(e) {
@@ -439,14 +541,28 @@ function removeImage(e) {
   document.getElementById('imageFileInput').value    = '';
   document.getElementById('currentImageUrl').value   = '';
   document.getElementById('previewImg').src          = '';
-  document.getElementById('uploadPreview').style.display    = 'none';
-  document.getElementById('uploadPlaceholder').style.display = 'flex';
+  document.getElementById('uploadPreview').style.display        = 'none';
+  document.getElementById('uploadingIndicator').style.display   = 'none';
+  document.getElementById('uploadPlaceholder').style.display    = 'flex';
 }
 
 function triggerPicker(e) {
   e.stopPropagation();
   document.getElementById('imageFileInput').click();
 }
+
+// ── عرض مؤشر الرفع عند إرسال الفورم ──
+document.getElementById('productForm').addEventListener('submit', function () {
+  const hasNewFile = document.getElementById('imageFileInput').files.length > 0;
+  if (hasNewFile) {
+    document.getElementById('uploadPreview').style.display      = 'none';
+    document.getElementById('uploadPlaceholder').style.display  = 'none';
+    document.getElementById('uploadingIndicator').style.display = 'flex';
+    document.getElementById('submitBtn').disabled = true;
+    document.getElementById('submitBtn').innerHTML =
+      '<span class="spinner-border spinner-border-sm me-2"></span>جارٍ الحفظ...';
+  }
+});
 </script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
