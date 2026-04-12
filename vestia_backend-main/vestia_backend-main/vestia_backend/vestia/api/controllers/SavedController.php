@@ -3,25 +3,28 @@
 // VESTIA API — Saved (Wishlist) Controller
 // ============================================================
 class SavedController {
+
     public static function index(): void {
         $user = getAuthUser();
         $db   = getDB();
 
-        // ✅ COALESCE بدلاً من IFNULL
+        // ✅ يجلب الأسماء بالثلاث لغات
         $stmt = $db->prepare(
-            "SELECT p.id, p.name, p.price, p.old_price, p.image_url,
+            "SELECT p.id, p.name, p.name_ar, p.name_fr,
+                    p.price, p.old_price, p.image_url,
                     COALESCE(AVG(r.rating), 0) AS avg_rating
              FROM saved_items s
              JOIN products p ON p.id = s.product_id
              LEFT JOIN reviews r ON r.product_id = p.id
              WHERE s.user_id = ? AND p.is_active = 1
-             GROUP BY p.id, p.name, p.price, p.old_price, p.image_url, s.created_at
+             GROUP BY p.id, p.name, p.name_ar, p.name_fr,
+                      p.price, p.old_price, p.image_url, s.created_at
              ORDER BY s.created_at DESC"
         );
         $stmt->execute([$user['id']]);
         $items = $stmt->fetchAll();
 
-        // ✅ FIX IMAGE URLs
+        // ✅ FIX IMAGE URLs + fallback للأسماء
         $items = array_map(function($item) {
             $imageUrl = $item['image_url'];
             if ($imageUrl && strpos($imageUrl, 'http') !== 0 && strpos($imageUrl, '/') === 0) {
@@ -29,6 +32,9 @@ class SavedController {
                 $host = $_SERVER['HTTP_HOST'];
                 $item['image_url'] = "{$protocol}://{$host}{$imageUrl}";
             }
+            // ✅ fallback: إذا كان name_ar أو name_fr فارغاً يرجع الاسم الإنجليزي
+            $item['name_ar'] = $item['name_ar'] ?: $item['name'];
+            $item['name_fr'] = $item['name_fr'] ?: $item['name'];
             return $item;
         }, $items);
 
