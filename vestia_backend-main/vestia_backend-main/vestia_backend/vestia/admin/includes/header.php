@@ -139,35 +139,35 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: #111; mar
 
   <nav class="sidebar-nav">
     <div class="nav-label">Main</div>
-    <a href="/vestia_backend/vestia/admin/dashboard.php" class="<?= basename($_SERVER['PHP_SELF']) === 'dashboard.php' ? 'active' : '' ?>">
+    <a href="/admin/dashboard.php" class="<?= basename($_SERVER['PHP_SELF']) === 'dashboard.php' ? 'active' : '' ?>">
       <i class="bi bi-grid-1x2-fill"></i> Dashboard
     </a>
 
     <div class="nav-label mt-2">Catalog</div>
-    <a href="/vestia_backend/vestia/admin/products.php" class="<?= str_contains($_SERVER['PHP_SELF'], 'product') ? 'active' : '' ?>">
+    <a href="/admin/products.php" class="<?= str_contains($_SERVER['PHP_SELF'], 'product') ? 'active' : '' ?>">
       <i class="bi bi-bag-fill"></i> Products
     </a>
-    <a href="/vestia_backend/vestia/admin/categories.php" class="<?= str_contains($_SERVER['PHP_SELF'], 'categor') ? 'active' : '' ?>">
+    <a href="/admin/categories.php" class="<?= str_contains($_SERVER['PHP_SELF'], 'categor') ? 'active' : '' ?>">
       <i class="bi bi-tags-fill"></i> Categories
     </a>
 
     <div class="nav-label mt-2">Sales</div>
-    <a href="/vestia_backend/vestia/admin/orders.php" class="<?= str_contains($_SERVER['PHP_SELF'], 'order') ? 'active' : '' ?>">
+    <a href="/admin/orders.php" class="<?= str_contains($_SERVER['PHP_SELF'], 'order') ? 'active' : '' ?>">
       <i class="bi bi-box-seam-fill"></i> Orders
     </a>
-    <a href="/vestia_backend/vestia/admin/reviews.php" class="<?= str_contains($_SERVER['PHP_SELF'], 'review') ? 'active' : '' ?>">
+    <a href="/admin/reviews.php" class="<?= str_contains($_SERVER['PHP_SELF'], 'review') ? 'active' : '' ?>">
       <i class="bi bi-star-fill"></i> Reviews
     </a>
 
     <div class="nav-label mt-2">Users</div>
-    <a href="/vestia_backend/vestia/admin/users.php" class="<?= str_contains($_SERVER['PHP_SELF'], 'user') ? 'active' : '' ?>">
+    <a href="/admin/users.php" class="<?= str_contains($_SERVER['PHP_SELF'], 'user') ? 'active' : '' ?>">
       <i class="bi bi-people-fill"></i> Customers
     </a>
   </nav>
 
   <div class="sidebar-footer">
     <div class="fw-600 text-white mb-1" style="font-size:13px"><?= htmlspecialchars($_SESSION['admin_name'] ?? 'Admin') ?></div>
-    <a href="/vestia_backend/vestia/admin/logout.php" class="text-danger text-decoration-none" style="font-size:12px"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+    <a href="/admin/logout.php" class="text-danger text-decoration-none" style="font-size:12px"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
   </div>
 </div>
 
