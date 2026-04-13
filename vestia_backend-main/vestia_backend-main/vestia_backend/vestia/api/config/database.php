@@ -8,7 +8,7 @@ define('DB_NAME', getenv('DB_NAME') ?: 'vestia_db');
 define('DB_USER', getenv('DB_USER') ?: 'postgres');
 define('DB_PASS', getenv('DB_PASS') ?: '');
 
-define('REPLICATE_API_TOKEN', 'r8_xxxxxxxxxxxxxxxx');
+
 define('TOKEN_EXPIRY', 30 * 24 * 60 * 60);
 define('SHIPPING_FEE', 80.00);
 
