@@ -5,7 +5,7 @@
 
 class ProductController {
 
-    /**
+    /** 
      * ✅ جلب قائمة المنتجات مع الفلاترة والبحث والترجمة
      */
     public static function index(): void {
