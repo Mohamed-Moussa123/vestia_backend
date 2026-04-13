@@ -66,4 +66,4 @@ match(true) {
     $resource === 'profile' && $method === 'PUT' => ProfileController::update(),
     // 404
     default => jsonError('Endpoint not found', 404),
-}; هل هذا هو ملف routes؟
+};
