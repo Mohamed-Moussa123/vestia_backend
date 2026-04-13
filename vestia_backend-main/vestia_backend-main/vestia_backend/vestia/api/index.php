@@ -38,6 +38,8 @@ $sub       = $segments[2] ?? null;
 // ── Route Table ──
 match(true) {
     // AUTH
+    // أضفه في جدول الـ Routes
+    $resource === 'health' && $method === 'GET' => jsonSuccess(['status' => 'ok']),
     $resource === 'register' && $method === 'POST' => AuthController::register(),
     $resource === 'login'    && $method === 'POST' => AuthController::login(),
     $resource === 'logout'   && $method === 'POST' => AuthController::logout(),
