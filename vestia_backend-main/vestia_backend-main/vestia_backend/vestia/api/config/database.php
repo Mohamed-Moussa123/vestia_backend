@@ -2,11 +2,11 @@
 error_reporting(0);
 ini_set('display_errors', 0);
 
-define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_HOST', getenv('DB_HOST') ?: 'dpg-d7d29777f7vs73enugog-a');
 define('DB_PORT', getenv('DB_PORT') ?: '5432');
 define('DB_NAME', getenv('DB_NAME') ?: 'vestia_db');
-define('DB_USER', getenv('DB_USER') ?: 'postgres');
-define('DB_PASS', getenv('DB_PASS') ?: '');
+define('DB_USER', getenv('DB_USER') ?: 'vestia_db_user');
+define('DB_PASS', getenv('DB_PASS') ?: 'v7RwdqtII1VjJcz55DSAcvnXGVpo7qpj');
 
 
 define('TOKEN_EXPIRY', 30 * 24 * 60 * 60);
