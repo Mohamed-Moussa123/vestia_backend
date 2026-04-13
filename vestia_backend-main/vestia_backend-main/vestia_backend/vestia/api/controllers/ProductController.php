@@ -48,7 +48,7 @@ class ProductController {
                 FROM products p
                 LEFT JOIN categories c ON c.id = p.category_id
                 LEFT JOIN reviews    r ON r.product_id = p.id
-                LEFT JOIN saved_products sp ON sp.product_id = p.id 
+                LEFT JOIN saved_items sp ON sp.product_id = p.id 
                     AND sp.user_id = " . ($userId ? $userId : 'NULL') . "
                 WHERE {$whereSQL}
                 GROUP BY p.id, p.name, p.name_ar, p.name_fr, 
@@ -100,7 +100,7 @@ class ProductController {
                 FROM products p
                 LEFT JOIN categories c ON c.id = p.category_id
                 LEFT JOIN reviews    r ON r.product_id = p.id
-                LEFT JOIN saved_products sp ON sp.product_id = p.id 
+                LEFT JOIN saved_items sp ON sp.product_id = p.id 
                     AND sp.user_id = " . ($userId ? $userId : 'NULL') . "
                 WHERE p.id = ? AND p.is_active = 1
                 GROUP BY p.id, p.name, p.name_ar, p.name_fr, 
