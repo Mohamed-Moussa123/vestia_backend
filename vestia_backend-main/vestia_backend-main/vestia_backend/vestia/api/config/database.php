@@ -1,6 +1,6 @@
 <?php
-error_reporting(0);
-ini_set('display_errors', 0);
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
 define('DB_HOST', getenv('DB_HOST') ?: 'dpg-d7d29777f7vs73enugog-a.frankfurt-postgres.render.com');
 define('DB_PORT', getenv('DB_PORT') ?: '5432');
