@@ -34,7 +34,6 @@ class ProductController {
 
         $whereSQL = implode(' AND ', $where);
 
-        // ✅ إضافة الحقول الجديدة
         $sql = "SELECT p.id, p.name, p.name_ar, p.name_fr, 
                        p.description, p.description_ar, p.description_fr,
                        p.price, p.old_price,
@@ -120,33 +119,28 @@ class ProductController {
     }
 
     /**
-     * ✅ تحويل البيانات إلى JSON Response (محدّث بالكامل)
+     * ✅ تحويل البيانات إلى JSON Response
      */
     private static function format(array $p, string $lang = 'en'): array {
-        // حساب نسبة الخصم من old_price
         $discount = null;
         if ($p['old_price'] && $p['old_price'] > $p['price']) {
             $discount = round((($p['old_price'] - $p['price']) / $p['old_price']) * 100);
         }
 
-        // ✅ تحويل رابط الصورة
         $imageUrl = fixImageUrl($p['image_url']);
 
-        // ✅ اختيار الاسم حسب اللغة
         $localizedName = match($lang) {
             'ar'    => $p['name_ar'] ?: $p['name'],
             'fr'    => $p['name_fr'] ?: $p['name'],
             default => $p['name'],
         };
 
-        // ✅ اختيار الوصف حسب اللغة (جديد)
         $localizedDescription = match($lang) {
             'ar'    => $p['description_ar'] ?: $p['description'],
             'fr'    => $p['description_fr'] ?: $p['description'],
             default => $p['description'],
         };
 
-        // ✅ اختيار اسم الفئة حسب اللغة
         $localizedCategory = isset($p['category_id']) && $p['category_id'] ? [
             'id'   => (int)$p['category_id'],
             'name' => match($lang) {
@@ -161,19 +155,19 @@ class ProductController {
             'id'               => (int)$p['id'],
             'name'             => $localizedName,
             'description'      => $localizedDescription,
-            'description_ar'   => $p['description_ar'],  // ✅ جديد
-            'description_fr'   => $p['description_fr'],  // ✅ جديد
+            'description_ar'   => $p['description_ar'],
+            'description_fr'   => $p['description_fr'],
             'price'            => (float)$p['price'],
             'old_price'        => $p['old_price'] ? (float)$p['old_price'] : null,
             'discount_percent' => $discount,
             'image_url'        => $imageUrl,
             'sizes'            => self::parseSizes($p['sizes'] ?? 'S,M,L,XL,XXL'),
-            'stock_count'      => (int)($p['stock_count'] ?? 0),  // ✅ جديد
-            'offer_ends_at'    => $p['offer_ends_at'],  // ✅ جديد
+            'stock_count'      => (int)($p['stock_count'] ?? 0),
+            'offer_ends_at'    => $p['offer_ends_at'],
             'category'         => $localizedCategory,
             'avg_rating'       => round((float)($p['avg_rating'] ?? 0), 1),
             'review_count'     => (int)($p['review_count'] ?? 0),
-            'is_saved'         => (bool)($p['is_saved'] ?? false),  // ✅ جديد
+            'is_saved'         => (bool)($p['is_saved'] ?? false),
             'created_at'       => $p['created_at'],
         ];
     }
@@ -193,7 +187,7 @@ class ProductController {
      */
     public static function search(): void {
         $db = getDB();
-        $q = $_GET['q'] ?? '';
+        $q  = $_GET['q']    ?? '';
         $lang = $_GET['lang'] ?? 'en';
 
         if (strlen($q) < 2) {
@@ -222,58 +216,4 @@ class ProductController {
             ], $results),
         ]);
     }
-}
-
-/**
- * ✅ API Endpoints
- */
-$route = $_GET['route'] ?? '';
-
-switch ($route) {
-    case 'products':
-        ProductController::index();
-        break;
-    
-    case 'product':
-        $id = $_GET['id'] ?? null;
-        if (!$id) jsonError('Missing product ID', 400);
-        ProductController::show($id);
-        break;
-    
-    case 'search':
-        ProductController::search();
-        break;
-    
-    default:
-        jsonError('Unknown route', 404);
-}
-
-/**
- * ✅ Helper Functions
- */
-
-function fixImageUrl(string $url): string {
-    if (empty($url)) return '';
-    
-    // إذا كان رابط كامل بالفعل
-    if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
-        return $url;
-    }
-    
-    // إضافة base URL إذا كان مسار محلي
-    return 'https://vestia-backend-1.onrender.com/uploads/' . ltrim($url, '/');
-}
-
-function jsonSuccess(array $data): void {
-    http_response_code(200);
-    header('Content-Type: application/json');
-    echo json_encode(['success' => true, 'data' => $data], JSON_UNESCAPED_UNICODE);
-    exit;
-}
-
-function jsonError(string $message, int $code = 400): void {
-    http_response_code($code);
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'error' => $message], JSON_UNESCAPED_UNICODE);
-    exit;
 }
